@@ -2,7 +2,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Link2, ExternalLink, Loader2 } from 'lucide-react';
+import { Link2, ExternalLink, Loader2, FileText, Video, BookOpen } from 'lucide-react';
 
 type Resource = {
   id: string;
@@ -16,35 +16,35 @@ export default function Resources() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
+  const [resourceTypes, setResourceTypes] = useState<string[]>(["all"]);
 
   useEffect(() => {
     const fetchResources = async () => {
       try {
         setLoading(true);
-        // Fetch from API instead of directly from Supabase
+        // Fetch from API
         const response = await fetch('/api/resources');
         if (!response.ok) {
           throw new Error('Failed to fetch resources');
         }
         const data = await response.json();
         setResources(data);
+        
+        // Extract unique resource types from the data
+        const uniqueTypes = new Set<string>();
+        data.forEach((resource: Resource) => {
+          if (resource.type) {
+            uniqueTypes.add(resource.type.toLowerCase());
+          }
+        });
+        
+        // Convert Set to array and add "all" at the beginning
+        const types = ["all", ...Array.from(uniqueTypes)];
+        setResourceTypes(types);
       } catch (error) {
         console.error("Error fetching resources:", error);
-        // Set some dummy data if fetch fails
-        setResources([
-          {
-            id: "1",
-            title: "Choosing the Right School: A Step-by-Step Guide",
-            type: "slides",
-            link: "#"
-          },
-          {
-            id: "2",
-            title: "Founders Worksheet",
-            type: "worksheet",
-            link: "#"
-          }
-        ]);
+        setResources([]);
+        setResourceTypes(["all"]);
       } finally {
         setLoading(false);
       }
@@ -60,7 +60,21 @@ export default function Resources() {
 
   // Get icon based on resource type
   const getResourceIcon = (type: string) => {
-    return <Link2 className="h-5 w-5" />;
+    const lowerType = type.toLowerCase();
+    switch(lowerType) {
+      case 'video':
+        return <Video className="h-5 w-5" />;
+      case 'document':
+        return <FileText className="h-5 w-5" />;
+      case 'slides':
+        return <FileText className="h-5 w-5" />;
+      case 'worksheet':
+        return <FileText className="h-5 w-5" />;
+      case 'guide':
+        return <BookOpen className="h-5 w-5" />;
+      default:
+        return <Link2 className="h-5 w-5" />;
+    }
   };
 
   return (
@@ -70,36 +84,17 @@ export default function Resources() {
         
         <div className="mb-8">
           <div className="flex overflow-x-auto pb-2">
-            <button 
-              onClick={() => setActiveTab("all")} 
-              className={`px-4 py-2 mr-2 rounded-md ${activeTab === "all" ? "bg-primary text-white" : "bg-card text-foreground"}`}
-            >
-              All
-            </button>
-            <button 
-              onClick={() => setActiveTab("video")} 
-              className={`px-4 py-2 mr-2 rounded-md ${activeTab === "video" ? "bg-primary text-white" : "bg-card text-foreground"}`}
-            >
-              Videos
-            </button>
-            <button 
-              onClick={() => setActiveTab("document")} 
-              className={`px-4 py-2 mr-2 rounded-md ${activeTab === "document" ? "bg-primary text-white" : "bg-card text-foreground"}`}
-            >
-              Documents
-            </button>
-            <button 
-              onClick={() => setActiveTab("guide")} 
-              className={`px-4 py-2 mr-2 rounded-md ${activeTab === "guide" ? "bg-primary text-white" : "bg-card text-foreground"}`}
-            >
-              Guides
-            </button>
-            <button 
-              onClick={() => setActiveTab("link")} 
-              className={`px-4 py-2 rounded-md ${activeTab === "link" ? "bg-primary text-white" : "bg-card text-foreground"}`}
-            >
-              Links
-            </button>
+            {resourceTypes.map((type) => (
+              <button 
+                key={type}
+                onClick={() => setActiveTab(type)} 
+                className={`px-4 py-2 mr-2 rounded-md capitalize ${
+                  activeTab === type ? "bg-primary text-white" : "bg-card text-foreground"
+                }`}
+              >
+                {type === "all" ? "All" : type}
+              </button>
+            ))}
           </div>
         </div>
         
