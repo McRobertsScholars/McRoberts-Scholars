@@ -23,9 +23,10 @@ export async function GET() {
       total_records: count,
     })
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
     return NextResponse.json({
       success: false,
-      error: error.message,
+      error: errorMessage,
     })
   }
 }
