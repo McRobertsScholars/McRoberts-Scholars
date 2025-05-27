@@ -89,7 +89,8 @@ export default function KnowledgeManagement() {
       setContent("")
     } catch (error) {
       console.error("Error adding knowledge:", error)
-      setMessage({ type: "error", text: "Failed to add knowledge to the database", details: error })
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+      setMessage({ type: "error", text: "Failed to add knowledge to the database", details: errorMessage })
     } finally {
       setIsLoading(false)
     }
@@ -101,7 +102,8 @@ export default function KnowledgeManagement() {
       const data = await response.json()
       setTestResult(data)
     } catch (error) {
-      setTestResult({ success: false, error: error.message })
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+      setTestResult({ success: false, error: errorMessage })
     }
   }
 
