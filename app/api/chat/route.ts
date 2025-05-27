@@ -1,59 +1,56 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
-import fs from "fs"
-import path from "path"
 
 // Initialize Supabase client
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-// Read knowledge base file
-const knowledgeBasePath = path.join(process.cwd(), "data", "knowledge.txt")
-let knowledgeBase = ""
+// Function to search knowledge base using simple text matching
+async function searchKnowledgeBase(query: string, matchCount = 5): Promise<string> {
+  try {
+    // Convert query to lowercase for case-insensitive search
+    const queryLower = query.toLowerCase()
 
-try {
-  if (fs.existsSync(knowledgeBasePath)) {
-    knowledgeBase = fs.readFileSync(knowledgeBasePath, "utf8")
-  } else {
-    console.warn("Knowledge base file not found at:", knowledgeBasePath)
+    // Extract keywords from the query
+    const keywords = queryLower
+      .split(" ")
+      .filter((word) => word.length > 3)
+      .map((word) => word.replace(/[.,?!;:()]/g, ""))
+
+    // Search for content that contains any of the keywords
+    const { data: results, error } = await supabase.from("knowledge_base").select("content, metadata").limit(50) // Get more results to filter through
+
+    if (error) {
+      console.error("Error searching knowledge base:", error)
+      return ""
+    }
+
+    if (!results || results.length === 0) {
+      return ""
+    }
+
+    // Score each result based on keyword matches
+    const scoredResults = results.map((result) => {
+      const contentLower = result.content.toLowerCase()
+      const score = keywords.reduce((total, keyword) => {
+        return total + (contentLower.includes(keyword) ? 1 : 0)
+      }, 0)
+      return { ...result, score }
+    })
+
+    // Sort by score and take top results
+    const topResults = scoredResults
+      .filter((result) => result.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, matchCount)
+
+    // Combine the relevant chunks
+    const relevantInfo = topResults.map((result) => result.content).join("\n\n")
+
+    return relevantInfo
+  } catch (error) {
+    console.error("Knowledge base search error:", error)
+    return ""
   }
-} catch (error) {
-  console.error("Error reading knowledge base file:", error)
-}
-
-// Function to extract relevant information from knowledge base
-function extractRelevantInfo(query: string, knowledgeBase: string): string {
-  // Split the knowledge base into chunks
-  const chunks = knowledgeBase.split("\n\n")
-
-  // Convert query to lowercase for case-insensitive matching
-  const queryLower = query.toLowerCase()
-
-  // Keywords to look for
-  const keywords = queryLower
-    .split(" ")
-    .filter((word) => word.length > 3) // Only consider words longer than 3 characters
-    .map((word) => word.replace(/[.,?!;:()]/g, "")) // Remove punctuation
-
-  // Score each chunk based on keyword matches
-  const scoredChunks = chunks.map((chunk) => {
-    const chunkLower = chunk.toLowerCase()
-    const score = keywords.reduce((total, keyword) => {
-      return total + (chunkLower.includes(keyword) ? 1 : 0)
-    }, 0)
-    return { chunk, score }
-  })
-
-  // Sort chunks by score (highest first)
-  scoredChunks.sort((a, b) => b.score - a.score)
-
-  // Take the top 5 chunks or fewer if there aren't that many
-  const relevantChunks = scoredChunks
-    .filter((item) => item.score > 0) // Only include chunks with at least one keyword match
-    .slice(0, 5)
-    .map((item) => item.chunk)
-
-  // Join the relevant chunks
-  return relevantChunks.join("\n\n")
 }
 
 export async function POST(request: Request) {
@@ -94,8 +91,8 @@ export async function POST(request: Request) {
       ? resources.map((resource) => `${resource.title} (${resource.type}): ${resource.link}`).join("\n\n")
       : "No resources available at this time."
 
-    // Extract relevant information from the knowledge base
-    const relevantInfo = extractRelevantInfo(userMessage, knowledgeBase)
+    // Search knowledge base for relevant information
+    const relevantKnowledge = await searchKnowledgeBase(userMessage)
 
     // Create system message with context
     const systemMessage = `
@@ -108,8 +105,7 @@ ${formattedScholarships}
 Here are available resources:
 ${formattedResources}
 
-Here is additional relevant information:
-${relevantInfo}
+${relevantKnowledge ? `Here is additional relevant information from our knowledge base:\n${relevantKnowledge}` : ""}
 
 When asked about meetings, inform users that scholarship information sessions are held every Wednesday from 3:00 PM to 4:30 PM in the Student Center, Room 204.
 
@@ -138,7 +134,7 @@ IMPORTANT FORMATTING INSTRUCTIONS:
         Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "mistral-large-latest", // or whichever model you prefer
+        model: "mistral-large-latest",
         messages: aiMessages,
         temperature: 0.7,
         max_tokens: 1000,
@@ -160,4 +156,3 @@ IMPORTANT FORMATTING INSTRUCTIONS:
     return NextResponse.json({ error: "An error occurred while processing your request" }, { status: 500 })
   }
 }
-
