@@ -32,52 +32,6 @@ const ExpandableSection = ({ title, children }: { title: string; children: React
   )
 }
 
-// Component for scholarship card
-const ScholarshipCard = ({
-  name,
-  deadline,
-  amount,
-  description,
-  eligibility,
-  link,
-}: {
-  name: string
-  deadline: string
-  amount: string
-  description: string
-  eligibility: string
-  link: string
-}) => {
-  return (
-    <div className="mb-4 gradient-border">
-      <div className="p-4 rounded-lg bg-[#111827] text-white">
-        <h4 className="text-lg font-semibold text-white mb-2">{name}</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
-          <div className="flex items-center">
-            <span className="font-medium mr-2">Deadline:</span> {deadline}
-          </div>
-          <div className="flex items-center">
-            <span className="font-medium mr-2">Amount:</span> {amount}
-          </div>
-        </div>
-        <p className="mb-2">{description}</p>
-        <p className="mb-3">
-          <span className="font-medium">Eligibility:</span> {eligibility}
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center bg-transparent border-white text-white hover:bg-white/10"
-          onClick={() => window.open(link, "_blank")}
-        >
-          More Information
-          <ExternalLink className="ml-2 h-3 w-3" />
-        </Button>
-      </div>
-    </div>
-  )
-}
-
 // Component for typing animation
 const TypingAnimation = ({ text, onComplete }: { text: string; onComplete: () => void }) => {
   const [displayedText, setDisplayedText] = useState("")
@@ -88,7 +42,7 @@ const TypingAnimation = ({ text, onComplete }: { text: string; onComplete: () =>
       const timeout = setTimeout(() => {
         setDisplayedText((prev) => prev + text[currentIndex])
         setCurrentIndex((prev) => prev + 1)
-      }, 3) // Speed of typing - even faster (was 7)
+      }, 3) // Speed of typing
 
       return () => clearTimeout(timeout)
     } else {
@@ -96,148 +50,186 @@ const TypingAnimation = ({ text, onComplete }: { text: string; onComplete: () =>
     }
   }, [currentIndex, text, onComplete])
 
-  return <div>{displayedText}</div>
+  return <div className="whitespace-pre-wrap">{displayedText}</div>
 }
 
-// Custom markdown renderer
+// Enhanced markdown renderer
 const MarkdownRenderer = ({ content }: { content: string }) => {
-  // Process the content to identify different parts
-  const processContent = () => {
-    // Split content by double newlines to separate sections
-    const sections = content.split(/\n\n+/)
-
-    return sections.map((section, index) => {
-      // Check if this section is a scholarship
-      if (
-        section.match(
-          /^(.*?)\nDeadline: (.*?)\nAmount: (.*?)\nDescription: ([\s\S]*?)(?:\nEligibility: ([\s\S]*?))?(?:\nMore Information: ([\s\S]*?))?$/,
-        )
-      ) {
-        const match = section.match(
-          /^(.*?)\nDeadline: (.*?)\nAmount: (.*?)\nDescription: ([\s\S]*?)(?:\nEligibility: ([\s\S]*?))?(?:\nMore Information: ([\s\S]*?))?$/,
-        )
-        if (match) {
-          const [, name, deadline, amount, description, eligibility = "Not specified", link = "#"] = match
-
-          return (
-            <ScholarshipCard
-              key={index}
-              name={name}
-              deadline={deadline}
-              amount={amount}
-              description={description}
-              eligibility={eligibility}
-              link={link}
-            />
-          )
-        }
-      }
-
-      // Check if this is a numbered list with scholarships
-      if (section.match(/^\d+\.\s+\*\*([^*]+)\*\*/)) {
-        // This is a scholarship list item
-        return (
-          <div key={index} className="mb-4 gradient-border">
-            <div className="p-4 rounded-lg bg-[#111827] text-white">{processScholarshipListItem(section)}</div>
-          </div>
-        )
-      }
-
-      // Check if this is a heading
-      if (section.startsWith("## ")) {
-        const title = section.replace("## ", "")
-        return (
-          <h2 key={index} className="text-xl font-bold mt-6 mb-4 text-white">
-            {title}
-          </h2>
-        )
-      }
-
-      // Check if this is a subheading
-      if (section.startsWith("### ")) {
-        const title = section.replace("### ", "")
-        return (
-          <h3 key={index} className="text-lg font-semibold mt-4 mb-3 text-white">
-            {title}
-          </h3>
-        )
-      }
-
-      // Process lists
-      if (section.match(/^- /m)) {
-        const items = section.split(/\n- /)
-        return (
-          <ul key={index} className="list-disc pl-5 my-3 space-y-1 text-white">
-            {items.filter(Boolean).map((item, i) => (
-              <li key={i}>{processBoldText(item.replace(/^- /, ""))}</li>
-            ))}
-          </ul>
-        )
-      }
-
-      // Default paragraph
-      return (
-        <p key={index} className="mb-4 text-white">
-          {processBoldText(section)}
-        </p>
-      )
-    })
-  }
-
   // Process bold text (** **)
   const processBoldText = (text: string) => {
     const parts = text.split(/(\*\*[^*]+\*\*)/g)
     return parts.map((part, i) => {
       if (part.startsWith("**") && part.endsWith("**")) {
         const boldText = part.slice(2, -2)
-        return <strong key={i}>{boldText}</strong>
+        return (
+          <strong key={i} className="font-semibold text-accent">
+            {boldText}
+          </strong>
+        )
       }
       return part
     })
   }
 
-  // Process scholarship list items with links
-  const processScholarshipListItem = (text: string) => {
-    // Extract scholarship details using regex
-    const nameMatch = text.match(/\d+\.\s+\*\*([^*]+)\*\*/)
-    const deadlineMatch = text.match(/\*\*Deadline:\*\*\s+([^-]+)/)
-    const amountMatch = text.match(/\*\*Amount:\*\*\s+([^-]+)/)
-    const fitMatch = text.match(/\*\*Why it might be a good fit:\*\*\s+(.*?)(?=\s+-\s+\*\*More Information|$)/s)
-    const linkTextMatch = text.match(/\*\*More Information:\*\*\s+\[(.*?)\]/)
-    const linkUrlMatch = text.match(/$$(https?:\/\/[^)]+)$$/)
+  // Process links [text](url)
+  const processLinks = (text: string) => {
+    const linkRegex = /\[([^\]]+)\]$$([^)]+)$$/g
+    const parts = text.split(linkRegex)
+    const result = []
 
-    const name = nameMatch ? nameMatch[1] : "Scholarship"
-    const deadline = deadlineMatch ? deadlineMatch[1].trim() : ""
-    const amount = amountMatch ? amountMatch[1].trim() : ""
-    const fit = fitMatch ? fitMatch[1].trim() : ""
-    const linkText = linkTextMatch ? linkTextMatch[1] : "More Information"
-    const linkUrl = linkUrlMatch ? linkUrlMatch[1] : "#"
+    for (let i = 0; i < parts.length; i += 3) {
+      if (parts[i]) {
+        result.push(processBoldText(parts[i]))
+      }
+      if (parts[i + 1] && parts[i + 2]) {
+        result.push(
+          <a
+            key={i}
+            href={parts[i + 2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent hover:text-secondary underline inline-flex items-center"
+          >
+            {parts[i + 1]}
+            <ExternalLink className="ml-1 h-3 w-3" />
+          </a>,
+        )
+      }
+    }
 
-    return (
-      <>
-        <h4 className="text-lg font-semibold text-white mb-2">{name}</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
-          <div className="flex items-center">
-            <span className="font-medium mr-2">Deadline:</span> {deadline}
+    return result.length > 0 ? result : processBoldText(text)
+  }
+
+  // Process the content
+  const processContent = () => {
+    if (!content || !content.trim()) {
+      return <div className="text-gray-400">No content to display</div>
+    }
+
+    // Clean up the content - remove stray # symbols and extra whitespace
+    const cleanContent = content
+      .replace(/^#+\s*$/gm, "") // Remove lines with only # symbols
+      .replace(/^\s*#\s*$/gm, "") // Remove lines with only # and whitespace
+      .replace(/\n{3,}/g, "\n\n") // Replace multiple newlines with double newlines
+      .trim()
+
+    if (!cleanContent) {
+      return <div className="text-gray-400">No content to display</div>
+    }
+
+    // Split content by double newlines to separate sections
+    const sections = cleanContent.split(/\n\n+/)
+
+    return sections
+      .map((section, index) => {
+        // Skip empty sections
+        if (!section.trim()) return null
+
+        // Clean the section
+        const cleanSection = section.trim()
+
+        // Check if this is a main heading (## )
+        if (cleanSection.startsWith("## ")) {
+          const title = cleanSection.replace("## ", "").trim()
+          return (
+            <h2 key={index} className="text-2xl font-bold mt-6 mb-4 text-white">
+              {processLinks(title)}
+            </h2>
+          )
+        }
+
+        // Check if this is a subheading (### ) - render as expandable section
+        if (cleanSection.startsWith("### ")) {
+          const title = cleanSection.replace("### ", "").trim()
+          return (
+            <ExpandableSection key={index} title={title}>
+              <div className="text-white">Click to expand for more details about {title}</div>
+            </ExpandableSection>
+          )
+        }
+
+        // Check if this looks like a section title (starts with **text** and is short)
+        const sectionTitleMatch = cleanSection.match(/^\*\*([^*]+)\*\*\s*$/)
+        if (sectionTitleMatch && cleanSection.length < 100) {
+          const title = sectionTitleMatch[1].trim()
+          return (
+            <ExpandableSection key={index} title={title}>
+              <div className="text-white">Click to expand for more details about {title}</div>
+            </ExpandableSection>
+          )
+        }
+
+        // Check if this looks like a section with content (starts with **text** followed by content)
+        const sectionWithContentMatch = cleanSection.match(/^\*\*([^*]+)\*\*\s*\n?([\s\S]*)/)
+        if (sectionWithContentMatch) {
+          const [, title, sectionContent] = sectionWithContentMatch
+          return (
+            <ExpandableSection key={index} title={title.trim()}>
+              <div className="text-white space-y-2">{processTextContent(sectionContent.trim())}</div>
+            </ExpandableSection>
+          )
+        }
+
+        // Process numbered lists
+        if (cleanSection.match(/^\d+\.\s/)) {
+          const items = cleanSection.split(/\n(?=\d+\.)/)
+          return (
+            <ol key={index} className="list-decimal pl-5 my-4 space-y-2 text-white">
+              {items.map((item, i) => (
+                <li key={i} className="leading-relaxed">
+                  {processLinks(item.replace(/^\d+\.\s*/, ""))}
+                </li>
+              ))}
+            </ol>
+          )
+        }
+
+        // Process bullet lists
+        if (cleanSection.match(/^[-•]\s/m)) {
+          const items = cleanSection.split(/\n(?=[-•]\s)/)
+          return (
+            <ul key={index} className="list-disc pl-5 my-4 space-y-2 text-white">
+              {items.map((item, i) => (
+                <li key={i} className="leading-relaxed">
+                  {processLinks(item.replace(/^[-•]\s*/, ""))}
+                </li>
+              ))}
+            </ul>
+          )
+        }
+
+        // Default paragraph
+        return (
+          <div key={index} className="mb-4 text-white leading-relaxed">
+            {processLinks(cleanSection)}
           </div>
-          <div className="flex items-center">
-            <span className="font-medium mr-2">Amount:</span> {amount}
+        )
+      })
+      .filter(Boolean) // Remove null entries
+  }
+
+  // Process text content within sections
+  const processTextContent = (text: string) => {
+    const lines = text.split("\n")
+    return lines
+      .map((line, i) => {
+        const trimmedLine = line.trim()
+        if (!trimmedLine) return null
+
+        if (trimmedLine.match(/^[-•]\s/)) {
+          return (
+            <div key={i} className="ml-4 mb-1">
+              • {processLinks(trimmedLine.replace(/^[-•]\s*/, ""))}
+            </div>
+          )
+        }
+        return (
+          <div key={i} className="mb-2">
+            {processLinks(trimmedLine)}
           </div>
-        </div>
-        <p className="mb-3">
-          <span className="font-medium mr-2">Why it might be a good fit:</span> {fit}
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center bg-transparent border-white text-white hover:bg-white/10"
-          onClick={() => window.open(linkUrl, "_blank")}
-        >
-          {linkText}
-          <ExternalLink className="ml-2 h-3 w-3" />
-        </Button>
-      </>
-    )
+        )
+      })
+      .filter(Boolean)
   }
 
   return <div className="prose prose-sm max-w-none prose-invert">{processContent()}</div>
@@ -327,32 +319,6 @@ export default function AIAssistant() {
     setCurrentTypingMessage("")
   }
 
-  // Identify sections in the message content for expandable sections
-  const identifySections = (content: string) => {
-    // Using [\s\S] instead of the 's' flag for cross-line matching
-    const sectionRegex = /## (.*?)(?=\n## |$)/g
-
-    // We need to handle multiline matching differently without the 's' flag
-    // First, get all the section titles
-    const sectionTitles = [...content.matchAll(/## ([^\n]+)/g)].map((match) => match[1].trim())
-
-    if (sectionTitles.length > 0) {
-      // Split the content by section headers
-      const sections = content.split(/## [^\n]+\n/)
-      // Remove the first empty element if it exists
-      if (!sections[0].trim()) sections.shift()
-
-      return sectionTitles.map((title, index) => {
-        return {
-          title,
-          content: sections[index] || "",
-        }
-      })
-    }
-
-    return null
-  }
-
   return (
     <div className="min-h-screen bg-[#111827] px-4 py-8">
       <div className="container mx-auto max-w-4xl">
@@ -391,28 +357,17 @@ export default function AIAssistant() {
                     className={`max-w-[90%] rounded-lg ${
                       message.role === "user"
                         ? "ml-auto bg-blue-600 text-white p-4"
-                        : "mr-auto bg-[#111827] text-white p-5"
+                        : "mr-auto bg-[#1a2235] text-white p-5"
                     }`}
                   >
                     {message.role === "assistant" ? (
                       isLastMessage && isTyping ? (
-                        <div className="prose prose-sm max-w-none prose-invert">
+                        <div className="text-white">
                           <TypingAnimation text={currentTypingMessage} onComplete={handleTypingComplete} />
                         </div>
                       ) : (
                         <div className="text-white">
-                          {/* Check if we can identify sections for expandable content */}
-                          {identifySections(message.content) ? (
-                            <div>
-                              {identifySections(message.content)!.map((section, sectionIndex) => (
-                                <ExpandableSection key={sectionIndex} title={section.title}>
-                                  <MarkdownRenderer content={section.content} />
-                                </ExpandableSection>
-                              ))}
-                            </div>
-                          ) : (
-                            <MarkdownRenderer content={message.content} />
-                          )}
+                          <MarkdownRenderer content={message.content} />
                         </div>
                       )
                     ) : (
@@ -448,4 +403,3 @@ export default function AIAssistant() {
     </div>
   )
 }
-
