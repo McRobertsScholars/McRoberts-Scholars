@@ -64,9 +64,10 @@ async function searchKnowledgeBase(query: string, matchCount = 5): Promise<strin
 
 export async function POST(request: Request) {
   try {
-    console.log("Chat API called")
+    console.log("=== Chat API called ===")
     console.log("Environment check:")
     console.log("- GROQ_API_KEY exists:", !!process.env.GROQ_API_KEY)
+    console.log("- GROQ_API_KEY length:", process.env.GROQ_API_KEY?.length || 0)
     console.log("- SUPABASE_URL exists:", !!process.env.NEXT_PUBLIC_SUPABASE_URL)
     console.log("- SUPABASE_ANON_KEY exists:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -80,20 +81,32 @@ export async function POST(request: Request) {
     const userMessage = messages[messages.length - 1].content
     console.log("User message:", userMessage)
 
+    // Search knowledge base for relevant information FIRST
+    console.log("=== Searching knowledge base ===")
+    const relevantKnowledge = await searchKnowledgeBase(userMessage)
+    console.log("Knowledge base results:", relevantKnowledge ? "Found content" : "No content found")
+    if (relevantKnowledge) {
+      console.log("Knowledge content preview:", relevantKnowledge.substring(0, 200) + "...")
+    }
+
     // Fetch scholarships from Supabase
-    console.log("Fetching scholarships...")
+    console.log("=== Fetching scholarships ===")
     const { data: scholarships, error: scholarshipsError } = await supabase.from("scholarships").select("*")
 
     if (scholarshipsError) {
       console.error("Error fetching scholarships:", scholarshipsError)
+    } else {
+      console.log("Scholarships found:", scholarships?.length || 0)
     }
 
     // Fetch resources from Supabase
-    console.log("Fetching resources...")
+    console.log("=== Fetching resources ===")
     const { data: resources, error: resourcesError } = await supabase.from("resources").select("*")
 
     if (resourcesError) {
       console.error("Error fetching resources:", resourcesError)
+    } else {
+      console.log("Resources found:", resources?.length || 0)
     }
 
     // Format scholarships for the AI
@@ -110,10 +123,6 @@ export async function POST(request: Request) {
     const formattedResources = resources
       ? resources.map((resource) => `${resource.title} (${resource.type}): ${resource.link}`).join("\n\n")
       : "No resources available at this time."
-
-    // Search knowledge base for relevant information
-    console.log("Searching knowledge base...")
-    const relevantKnowledge = await searchKnowledgeBase(userMessage)
 
     // Create system message with context
     const systemMessage = `
@@ -143,9 +152,13 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 6. When giving tips or advice, provide the actual content, not just headings.
 `.trim()
 
-    // Only use Groq if API key is available
-    if (!process.env.GROQ_API_KEY) {
-      console.log("No Groq API key found, providing basic response with available data")
+    // Check if we should use Groq API
+    const useGroq = process.env.GROQ_API_KEY && process.env.GROQ_API_KEY.length > 10
+    console.log("=== API Decision ===")
+    console.log("Will use Groq API:", useGroq)
+
+    if (!useGroq) {
+      console.log("Using fallback response (no valid Groq API key)")
 
       // Create a response using available data
       let response = "## McRoberts Scholars Assistant\n\n"
@@ -225,13 +238,12 @@ Email: mcrobertsscholars@gmail.com`
       ...messages.map((msg: any) => ({ role: msg.role, content: msg.content })),
     ]
 
-    console.log("Calling Groq API...")
-
     try {
+      console.log("=== Calling Groq API ===")
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000)
 
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -247,26 +259,30 @@ Email: mcrobertsscholars@gmail.com`
       })
 
       clearTimeout(timeoutId)
+      console.log("Groq API response status:", groqResponse.status)
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error("Groq API error:", response.status, errorText)
-        throw new Error(`Groq API error: ${response.status}`)
+      if (!groqResponse.ok) {
+        const errorText = await groqResponse.text()
+        console.error("Groq API error details:", errorText)
+        throw new Error(`Groq API error: ${groqResponse.status} - ${errorText}`)
       }
 
-      const data = await response.json()
+      const data = await groqResponse.json()
       console.log("Groq API response received successfully")
+      console.log("Response preview:", data.choices?.[0]?.message?.content?.substring(0, 100) + "...")
 
       if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        console.error("Invalid Groq API response structure:", JSON.stringify(data, null, 2))
         throw new Error("Invalid Groq API response structure")
       }
 
       const responseContent = data.choices[0].message.content || "Sorry, I could not generate a response."
 
-      console.log("Sending Groq response to client")
+      console.log("=== Sending Groq response to client ===")
       return NextResponse.json({ content: responseContent })
     } catch (groqError) {
-      console.error("Groq API call failed:", groqError)
+      console.error("=== Groq API call failed ===")
+      console.error("Error details:", groqError)
 
       // Fallback to basic response if Groq fails
       const fallbackResponse = `## McRoberts Scholars Assistant
