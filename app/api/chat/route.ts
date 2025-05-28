@@ -66,10 +66,10 @@ export async function POST(request: Request) {
   try {
     console.log("Chat API called")
 
-    // Check environment variables
-    if (!process.env.MISTRAL_API_KEY) {
-      console.error("MISTRAL_API_KEY not found")
-      return NextResponse.json({ error: "Mistral API key not configured" }, { status: 500 })
+    // Check environment variables - now using GROQ instead of Mistral
+    if (!process.env.GROQ_API_KEY) {
+      console.error("GROQ_API_KEY not found")
+      return NextResponse.json({ error: "Groq API key not configured" }, { status: 500 })
     }
 
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -152,27 +152,27 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 5. Use ### for subsections that should be expandable
 `.trim()
 
-    // Prepare messages for Mistral
+    // Prepare messages for Groq
     const aiMessages = [
       { role: "system", content: systemMessage },
       ...messages.map((msg: any) => ({ role: msg.role, content: msg.content })),
     ]
 
-    console.log("Calling Mistral API...")
+    console.log("Calling Groq API...")
 
-    // Call Mistral API with timeout and better error handling
+    // Call Groq API with timeout and better error handling
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
     try {
-      const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "mistral-large-latest",
+          model: "mixtral-8x7b-32768", // Fast and capable model
           messages: aiMessages,
           temperature: 0.7,
           max_tokens: 1000,
@@ -184,16 +184,16 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error("Mistral API error:", response.status, errorText)
-        throw new Error(`Mistral API error: ${response.status} - ${errorText}`)
+        console.error("Groq API error:", response.status, errorText)
+        throw new Error(`Groq API error: ${response.status} - ${errorText}`)
       }
 
       const data = await response.json()
-      console.log("Mistral API response received")
+      console.log("Groq API response received")
 
       if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        console.error("Invalid Mistral API response structure:", data)
-        throw new Error("Invalid response from Mistral API")
+        console.error("Invalid Groq API response structure:", data)
+        throw new Error("Invalid response from Groq API")
       }
 
       const responseContent = data.choices[0].message.content || "Sorry, I could not generate a response."
@@ -205,7 +205,7 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 
       // Type-safe error handling
       if (fetchError instanceof Error && fetchError.name === "AbortError") {
-        console.error("Mistral API request timed out")
+        console.error("Groq API request timed out")
         throw new Error("Request timed out")
       }
 
