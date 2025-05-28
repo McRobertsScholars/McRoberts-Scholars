@@ -62,25 +62,6 @@ async function searchKnowledgeBase(query: string, matchCount = 5): Promise<strin
   }
 }
 
-// Fallback responses for common questions
-function getFallbackResponse(userMessage: string): string {
-  const messageLower = userMessage.toLowerCase()
-
-  if (messageLower.includes("meeting") || messageLower.includes("when")) {
-    return "## Meeting Information\n\nMcRoberts Scholars holds scholarship information sessions every **Wednesday from 3:00 PM to 4:30 PM** in the **Student Center, Room 204**.\n\n### What We Cover\n- Scholarship opportunities\n- Application strategies\n- Essay writing tips\n- Interview preparation\n\n### How to Join\nJoin our Discord server for updates: https://discord.gg/j8SP6zxraN"
-  }
-
-  if (messageLower.includes("scholarship") || messageLower.includes("apply")) {
-    return "## Available Scholarships\n\nHere are some current scholarship opportunities:\n\n### 1. **Toshiba ExploraVision National Science Competition**\n- **Deadline:** January 31, 2026\n- **Amount:** $10,000\n- **Description:** Science competition for K-12 students\n- **Requirements:** Team of 2-4 students, teacher advisor required\n- **More Information:** [Apply Here](https://www.exploravision.org/)\n\n### 2. **Optimist International Oratorical Contest**\n- **Deadline:** Varies by local club\n- **Amount:** Up to $2,500\n- **Description:** Speech contest for students under 19\n- **Requirements:** Speech on designated topic, under 19 years old\n- **More Information:** [Learn More](https://www.optimist.org/member/scholarships3.cfm)\n\n### Need Help?\nJoin our Discord for personalized assistance: https://discord.gg/j8SP6zxraN"
-  }
-
-  if (messageLower.includes("writing") || messageLower.includes("essay")) {
-    return "## Creative Writing Tips\n\n### **Start with a Strong Hook**\nBegin your essay with an engaging opening that captures the reader's attention.\n\n### **Show, Don't Tell**\nUse specific examples and vivid details rather than general statements.\n\n### **Be Authentic**\nWrite in your own voice and share genuine experiences.\n\n### **Structure Your Ideas**\n- Introduction with clear thesis\n- Body paragraphs with supporting evidence\n- Strong conclusion that ties everything together\n\n### **Edit and Revise**\n- Read your work aloud\n- Check for grammar and spelling\n- Get feedback from others\n\n### Need More Help?\nJoin our Discord for writing workshops and feedback: https://discord.gg/j8SP6zxraN"
-  }
-
-  return "## McRoberts Scholars Assistant\n\nI'm here to help with scholarship information! I can assist with:\n\n### **Scholarship Opportunities**\n- Current available scholarships\n- Application deadlines\n- Eligibility requirements\n\n### **Application Support**\n- Essay writing tips\n- Interview preparation\n- Application strategies\n\n### **Meeting Information**\n- Weekly sessions: Wednesdays 3:00-4:30 PM\n- Location: Student Center, Room 204\n\n### **Get Connected**\nJoin our Discord community: https://discord.gg/j8SP6zxraN\n\nFeel free to ask me specific questions about scholarships, applications, or our program!"
-}
-
 export async function POST(request: Request) {
   try {
     console.log("Chat API called")
@@ -99,20 +80,12 @@ export async function POST(request: Request) {
     const userMessage = messages[messages.length - 1].content
     console.log("User message:", userMessage)
 
-    // If no Groq API key, use fallback response
-    if (!process.env.GROQ_API_KEY) {
-      console.log("No Groq API key found, using fallback response")
-      const fallbackContent = getFallbackResponse(userMessage)
-      return NextResponse.json({ content: fallbackContent })
-    }
-
     // Fetch scholarships from Supabase
     console.log("Fetching scholarships...")
     const { data: scholarships, error: scholarshipsError } = await supabase.from("scholarships").select("*")
 
     if (scholarshipsError) {
       console.error("Error fetching scholarships:", scholarshipsError)
-      // Continue without scholarships rather than failing
     }
 
     // Fetch resources from Supabase
@@ -121,7 +94,6 @@ export async function POST(request: Request) {
 
     if (resourcesError) {
       console.error("Error fetching resources:", resourcesError)
-      // Continue without resources rather than failing
     }
 
     // Format scholarships for the AI
@@ -164,12 +136,88 @@ Always answer all parts of multi-part questions.
 
 IMPORTANT FORMATTING INSTRUCTIONS:
 1. When you want to emphasize text, use **bold** format.
-2. When listing scholarships, format them as numbered list items with the following structure:
-   1. **Scholarship Name** - **Deadline:** Date - **Amount:** Amount - **Why it might be a good fit:** Explanation - **More Information:** [Link Text](URL)
-3. Make sure all links are properly formatted as markdown links: [Link Text](URL)
-4. Use clear headings with ## for main sections
-5. Use ### for subsections that should be expandable
+2. Use clear headings with ## for main sections.
+3. Use bullet points with - for lists.
+4. Make sure all links are properly formatted as markdown links: [Link Text](URL)
+5. Provide detailed, helpful content - don't just give section titles.
+6. When giving tips or advice, provide the actual content, not just headings.
 `.trim()
+
+    // Only use Groq if API key is available
+    if (!process.env.GROQ_API_KEY) {
+      console.log("No Groq API key found, providing basic response with available data")
+
+      // Create a response using available data
+      let response = "## McRoberts Scholars Assistant\n\n"
+
+      if (userMessage.toLowerCase().includes("writing") || userMessage.toLowerCase().includes("essay")) {
+        response += `## Creative Writing Tips
+
+**Start with a Strong Hook**
+Begin your essay with an engaging opening that captures the reader's attention. This could be a compelling question, an interesting fact, or a personal anecdote.
+
+**Show, Don't Tell**
+Use specific examples and vivid details rather than general statements. Instead of saying "I'm a leader," describe a specific situation where you demonstrated leadership.
+
+**Be Authentic**
+Write in your own voice and share genuine experiences. Admissions committees can tell when writing feels forced or fake.
+
+**Structure Your Ideas**
+- Introduction with clear thesis
+- Body paragraphs with supporting evidence  
+- Strong conclusion that ties everything together
+
+**Edit and Revise**
+- Read your work aloud to catch awkward phrasing
+- Check for grammar and spelling errors
+- Get feedback from teachers, counselors, or peers
+- Make sure you're answering the prompt directly
+
+**Keep It Focused**
+Stay on topic and make every sentence count. Most scholarship essays have word limits, so make each word meaningful.
+
+## Need More Help?
+Join our Discord community for writing workshops and personalized feedback: https://discord.gg/j8SP6zxraN
+
+We also hold weekly meetings every Wednesday from 3:00 PM to 4:30 PM in the Student Center, Room 204.`
+      } else if (userMessage.toLowerCase().includes("meeting") || userMessage.toLowerCase().includes("when")) {
+        response += `## Meeting Information
+
+McRoberts Scholars holds scholarship information sessions every **Wednesday from 3:00 PM to 4:30 PM** in the **Student Center, Room 204**.
+
+## What We Cover
+- Current scholarship opportunities
+- Application strategies and deadlines
+- Essay writing workshops
+- Interview preparation tips
+- Peer support and feedback
+
+## How to Stay Connected
+Join our Discord server for updates and community support: https://discord.gg/j8SP6zxraN
+
+## Contact Information
+Email us at: mcrobertsscholars@gmail.com`
+      } else {
+        response += `I can help you with scholarship information, application tips, and more!
+
+## Available Scholarships
+${formattedScholarships}
+
+## Resources
+${formattedResources}
+
+${relevantKnowledge ? `## Additional Information\n${relevantKnowledge}` : ""}
+
+## Weekly Meetings
+Join us every Wednesday from 3:00 PM to 4:30 PM in the Student Center, Room 204.
+
+## Stay Connected
+Discord: https://discord.gg/j8SP6zxraN
+Email: mcrobertsscholars@gmail.com`
+      }
+
+      return NextResponse.json({ content: response })
+    }
 
     // Prepare messages for Groq
     const aiMessages = [
@@ -180,9 +228,8 @@ IMPORTANT FORMATTING INSTRUCTIONS:
     console.log("Calling Groq API...")
 
     try {
-      // Call Groq API with timeout and better error handling
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
 
       const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -191,10 +238,10 @@ IMPORTANT FORMATTING INSTRUCTIONS:
           Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "mixtral-8x7b-32768", // Fast and capable model
+          model: "mixtral-8x7b-32768",
           messages: aiMessages,
           temperature: 0.7,
-          max_tokens: 1000,
+          max_tokens: 1500,
         }),
         signal: controller.signal,
       })
@@ -204,23 +251,14 @@ IMPORTANT FORMATTING INSTRUCTIONS:
       if (!response.ok) {
         const errorText = await response.text()
         console.error("Groq API error:", response.status, errorText)
-
-        // Use fallback response if Groq API fails
-        console.log("Groq API failed, using fallback response")
-        const fallbackContent = getFallbackResponse(userMessage)
-        return NextResponse.json({ content: fallbackContent })
+        throw new Error(`Groq API error: ${response.status}`)
       }
 
       const data = await response.json()
       console.log("Groq API response received successfully")
 
       if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        console.error("Invalid Groq API response structure:", data)
-
-        // Use fallback response if response structure is invalid
-        console.log("Invalid Groq response structure, using fallback")
-        const fallbackContent = getFallbackResponse(userMessage)
-        return NextResponse.json({ content: fallbackContent })
+        throw new Error("Invalid Groq API response structure")
       }
 
       const responseContent = data.choices[0].message.content || "Sorry, I could not generate a response."
@@ -230,19 +268,36 @@ IMPORTANT FORMATTING INSTRUCTIONS:
     } catch (groqError) {
       console.error("Groq API call failed:", groqError)
 
-      // Use fallback response if Groq completely fails
-      console.log("Groq API completely failed, using fallback response")
-      const fallbackContent = getFallbackResponse(userMessage)
-      return NextResponse.json({ content: fallbackContent })
+      // Fallback to basic response if Groq fails
+      const fallbackResponse = `## McRoberts Scholars Assistant
+
+I'm experiencing some technical difficulties, but I can still help with basic information!
+
+## Available Scholarships
+${formattedScholarships}
+
+## Resources  
+${formattedResources}
+
+${relevantKnowledge ? `## Additional Information\n${relevantKnowledge}` : ""}
+
+## Weekly Meetings
+Every Wednesday from 3:00 PM to 4:30 PM in the Student Center, Room 204.
+
+## Get Connected
+- Discord: https://discord.gg/j8SP6zxraN
+- Email: mcrobertsscholars@gmail.com
+
+For more detailed help, please try again in a moment or join our Discord community!`
+
+      return NextResponse.json({ content: fallbackResponse })
     }
   } catch (error) {
     console.error("Error in chat API:", error)
-    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
 
-    // Even if everything fails, provide a basic response
-    const userMessage = "general help"
-    const fallbackContent = getFallbackResponse(userMessage)
-
-    return NextResponse.json({ content: fallbackContent })
+    return NextResponse.json({
+      content:
+        "## Technical Difficulties\n\nI'm experiencing some issues right now. Please try again in a moment, or join our Discord for immediate help: https://discord.gg/j8SP6zxraN\n\nYou can also email us at mcrobertsscholars@gmail.com",
+    })
   }
 }

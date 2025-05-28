@@ -42,7 +42,7 @@ const TypingAnimation = ({ text, onComplete }: { text: string; onComplete: () =>
       const timeout = setTimeout(() => {
         setDisplayedText((prev) => prev + text[currentIndex])
         setCurrentIndex((prev) => prev + 1)
-      }, 3) // Speed of typing
+      }, 3)
 
       return () => clearTimeout(timeout)
     } else {
@@ -106,7 +106,7 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
       return <div className="text-gray-400">No content to display</div>
     }
 
-    // Clean up the content - remove stray # symbols and extra whitespace
+    // Clean up the content
     const cleanContent = content
       .replace(/^#+\s*$/gm, "") // Remove lines with only # symbols
       .replace(/^\s*#\s*$/gm, "") // Remove lines with only # and whitespace
@@ -143,31 +143,25 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
           const title = cleanSection.replace("### ", "").trim()
           return (
             <ExpandableSection key={index} title={title}>
-              <div className="text-white">Click to expand for more details about {title}</div>
+              <div className="text-white">More details about {title}</div>
             </ExpandableSection>
           )
         }
 
-        // Check if this looks like a section title (starts with **text** and is short)
-        const sectionTitleMatch = cleanSection.match(/^\*\*([^*]+)\*\*\s*$/)
-        if (sectionTitleMatch && cleanSection.length < 100) {
-          const title = sectionTitleMatch[1].trim()
-          return (
-            <ExpandableSection key={index} title={title}>
-              <div className="text-white">Click to expand for more details about {title}</div>
-            </ExpandableSection>
-          )
-        }
+        // Check if this looks like a section with content (starts with **text** on its own line)
+        const lines = cleanSection.split("\n")
+        if (lines.length > 1 && lines[0].match(/^\*\*[^*]+\*\*$/)) {
+          const title = lines[0].replace(/^\*\*|\*\*$/g, "")
+          const content = lines.slice(1).join("\n").trim()
 
-        // Check if this looks like a section with content (starts with **text** followed by content)
-        const sectionWithContentMatch = cleanSection.match(/^\*\*([^*]+)\*\*\s*\n?([\s\S]*)/)
-        if (sectionWithContentMatch) {
-          const [, title, sectionContent] = sectionWithContentMatch
-          return (
-            <ExpandableSection key={index} title={title.trim()}>
-              <div className="text-white space-y-2">{processTextContent(sectionContent.trim())}</div>
-            </ExpandableSection>
-          )
+          if (content) {
+            return (
+              <div key={index} className="mb-6">
+                <h3 className="text-lg font-semibold text-accent mb-2">{title}</h3>
+                <div className="text-white leading-relaxed">{processTextContent(content)}</div>
+              </div>
+            )
+          }
         }
 
         // Process numbered lists
