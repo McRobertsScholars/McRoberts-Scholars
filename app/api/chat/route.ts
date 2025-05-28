@@ -106,7 +106,6 @@ AVAILABLE RESOURCES:
 ${formattedResources}
 
 CLUB INFORMATION:
-- Weekly meetings: Wednesdays 3:00-4:30 PM in Student Center Room 204
 - Discord: https://discord.gg/j8SP6zxraN
 - Email: mcrobertsscholars@gmail.com
 
