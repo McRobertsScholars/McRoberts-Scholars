@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ChevronDown, ChevronRight, ExternalLink, Info, Loader2, Send } from "lucide-react"
+import { ChevronDown, ChevronRight, ExternalLink, Info, Loader2, Send, AlertCircle } from "lucide-react"
 
 // Component for expandable sections
 const ExpandableSection = ({ title, children }: { title: string; children: React.ReactNode }) => {
@@ -106,29 +106,16 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
       return <div className="text-gray-400">No content to display</div>
     }
 
-    // Clean up the content
-    const cleanContent = content
-      .replace(/^#+\s*$/gm, "") // Remove lines with only # symbols
-      .replace(/^\s*#\s*$/gm, "") // Remove lines with only # and whitespace
-      .replace(/\n{3,}/g, "\n\n") // Replace multiple newlines with double newlines
-      .trim()
-
-    if (!cleanContent) {
-      return <div className="text-gray-400">No content to display</div>
-    }
-
-    // Split content by double newlines to separate sections
+    const cleanContent = content.trim()
     const sections = cleanContent.split(/\n\n+/)
 
     return sections
       .map((section, index) => {
-        // Skip empty sections
         if (!section.trim()) return null
 
-        // Clean the section
         const cleanSection = section.trim()
 
-        // Check if this is a main heading (## )
+        // Main heading (## )
         if (cleanSection.startsWith("## ")) {
           const title = cleanSection.replace("## ", "").trim()
           return (
@@ -138,17 +125,17 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
           )
         }
 
-        // Check if this is a subheading (### ) - render as expandable section
+        // Subheading (### )
         if (cleanSection.startsWith("### ")) {
           const title = cleanSection.replace("### ", "").trim()
           return (
-            <ExpandableSection key={index} title={title}>
-              <div className="text-white">More details about {title}</div>
-            </ExpandableSection>
+            <h3 key={index} className="text-lg font-semibold mt-4 mb-2 text-accent">
+              {processLinks(title)}
+            </h3>
           )
         }
 
-        // Check if this looks like a section with content (starts with **text** on its own line)
+        // Bold section headers
         const lines = cleanSection.split("\n")
         if (lines.length > 1 && lines[0].match(/^\*\*[^*]+\*\*$/)) {
           const title = lines[0].replace(/^\*\*|\*\*$/g, "")
@@ -164,7 +151,7 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
           }
         }
 
-        // Process numbered lists
+        // Numbered lists
         if (cleanSection.match(/^\d+\.\s/)) {
           const items = cleanSection.split(/\n(?=\d+\.)/)
           return (
@@ -178,7 +165,7 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
           )
         }
 
-        // Process bullet lists
+        // Bullet lists
         if (cleanSection.match(/^[-•]\s/m)) {
           const items = cleanSection.split(/\n(?=[-•]\s)/)
           return (
@@ -199,7 +186,7 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
           </div>
         )
       })
-      .filter(Boolean) // Remove null entries
+      .filter(Boolean)
   }
 
   // Process text content within sections
@@ -241,6 +228,7 @@ export default function AIAssistant() {
   const [isLoading, setIsLoading] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const [currentTypingMessage, setCurrentTypingMessage] = useState("")
+  const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Scroll to bottom of messages
@@ -259,12 +247,12 @@ export default function AIAssistant() {
     if (!input.trim() || isLoading || isTyping) return
 
     setIsLoading(true)
+    setError(null)
     const userMessage = { role: "user", content: input }
     setMessages((prev) => [...prev, userMessage])
     setInput("")
 
     try {
-      // Send the message to our API endpoint
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -276,7 +264,8 @@ export default function AIAssistant() {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to get response")
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}`)
       }
 
       const data = await response.json()
@@ -289,11 +278,13 @@ export default function AIAssistant() {
       setMessages((prev) => [...prev, { role: "assistant", content: "" }])
     } catch (error) {
       console.error("Error:", error)
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+      setError(errorMessage)
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, I encountered an error. Please try again.",
+          content: `## Error\n\nSorry, I encountered an error: ${errorMessage}\n\nPlease try again or contact support.`,
         },
       ])
       setIsTyping(false)
@@ -321,10 +312,17 @@ export default function AIAssistant() {
         <Alert className="mb-6 bg-amber-50 border-amber-200 text-amber-800">
           <Info className="h-4 w-4 mr-2" />
           <AlertDescription>
-            This AI assistant is designed to help with scholarship information, but it may occasionally make mistakes.
-            Please verify important information through official sources.
+            This AI assistant uses our knowledge base to help with scholarship information. Please verify important
+            details through official sources.
           </AlertDescription>
         </Alert>
+
+        {error && (
+          <Alert className="mb-6 bg-red-900 border-red-700">
+            <AlertCircle className="h-4 w-4 mr-2 text-red-400" />
+            <AlertDescription className="text-white">{error}</AlertDescription>
+          </Alert>
+        )}
 
         <div className="gradient-border">
           <div className="bg-[#111827] rounded-lg">
