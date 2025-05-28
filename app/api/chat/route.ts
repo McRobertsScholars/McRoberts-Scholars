@@ -7,46 +7,40 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 )
 
-// Function to get embeddings from Groq (since we're switching from Mistral)
-async function getEmbedding(text: string): Promise<number[] | null> {
-  try {
-    // For now, let's use a simple text search since Groq doesn't have embeddings API
-    // We'll implement proper vector search once we get the embeddings working
-    return null
-  } catch (error) {
-    console.error("Embedding error:", error)
-    return null
-  }
-}
-
-// Function to search knowledge base using vector similarity
+// Function to search knowledge base using text search
 async function searchKnowledgeBase(query: string, matchCount = 5): Promise<string> {
   try {
     console.log("Searching knowledge base for:", query)
 
-    // For now, use text search until we get embeddings working
-    let results = null
-    const { data: searchResults, error } = await supabase
-      .from("knowledge_base")
-      .select("content, metadata")
-      .textSearch("content", query)
-      .limit(matchCount)
+    // Use text search with keywords
+    const keywords = query
+      .toLowerCase()
+      .split(" ")
+      .filter((word) => word.length > 3)
 
-    if (error) {
-      console.error("Knowledge base search error:", error)
-      // Fallback to simple text matching
-      const { data: fallbackResults, error: fallbackError } = await supabase
+    let results = null
+
+    // Try different search approaches
+    for (const keyword of keywords) {
+      const { data: searchResults, error } = await supabase
         .from("knowledge_base")
         .select("content, metadata")
-        .ilike("content", `%${query}%`)
+        .ilike("content", `%${keyword}%`)
         .limit(matchCount)
 
-      if (fallbackError) {
-        console.error("Fallback search error:", fallbackError)
-        return ""
+      if (!error && searchResults && searchResults.length > 0) {
+        results = searchResults
+        break
       }
+    }
 
-      results = fallbackResults
+    // If no keyword matches, get some general content
+    if (!results || results.length === 0) {
+      const { data: generalResults, error } = await supabase.from("knowledge_base").select("content, metadata").limit(3)
+
+      if (!error) {
+        results = generalResults
+      }
     }
 
     if (!results || results.length === 0) {
@@ -118,12 +112,12 @@ CLUB INFORMATION:
 
 Always provide helpful, accurate responses based on the information above. Use markdown formatting with ## for headings and **bold** for emphasis. Include relevant links when appropriate.`
 
-    // Check if Groq API key exists and is valid
-    if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY.length < 20) {
-      console.error("Invalid or missing Groq API key")
+    // Check if Groq API key exists
+    if (!process.env.GROQ_API_KEY) {
+      console.error("Missing Groq API key")
       return NextResponse.json(
         {
-          error: "AI service unavailable - API key not configured properly",
+          error: "AI service unavailable - API key not configured",
         },
         { status: 500 },
       )
@@ -135,9 +129,9 @@ Always provide helpful, accurate responses based on the information above. Use m
       ...messages.map((msg: any) => ({ role: msg.role, content: msg.content })),
     ]
 
-    console.log("Calling Groq API...")
+    console.log("Calling Groq API with model: llama-3.1-70b-versatile")
 
-    // Call Groq API
+    // Call Groq API with correct model names
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -145,31 +139,73 @@ Always provide helpful, accurate responses based on the information above. Use m
         Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "mixtral-8x7b-32768",
+        model: "llama-3.1-70b-versatile", // Using a known working Groq model
         messages: aiMessages,
         temperature: 0.7,
         max_tokens: 1500,
+        top_p: 0.9,
+        stream: false,
       }),
     })
+
+    console.log("Groq API response status:", response.status)
 
     if (!response.ok) {
       const errorText = await response.text()
       console.error("Groq API error:", response.status, errorText)
-      return NextResponse.json(
-        {
-          error: `AI service error: ${response.status}`,
+
+      // Try with a different model if the first one fails
+      console.log("Trying with alternative model: llama3-8b-8192")
+
+      const fallbackResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
         },
-        { status: 500 },
-      )
+        body: JSON.stringify({
+          model: "llama3-8b-8192", // Alternative model
+          messages: aiMessages,
+          temperature: 0.7,
+          max_tokens: 1500,
+          top_p: 0.9,
+          stream: false,
+        }),
+      })
+
+      if (!fallbackResponse.ok) {
+        const fallbackErrorText = await fallbackResponse.text()
+        console.error("Fallback model also failed:", fallbackResponse.status, fallbackErrorText)
+        return NextResponse.json(
+          {
+            error: `AI service error: ${response.status} - ${errorText}`,
+          },
+          { status: 500 },
+        )
+      }
+
+      const fallbackData = await fallbackResponse.json()
+      if (!fallbackData.choices || !fallbackData.choices[0] || !fallbackData.choices[0].message) {
+        return NextResponse.json(
+          {
+            error: "Invalid AI response structure",
+          },
+          { status: 500 },
+        )
+      }
+
+      const responseContent = fallbackData.choices[0].message.content
+      console.log("Fallback model response received successfully")
+      return NextResponse.json({ content: responseContent })
     }
 
     const data = await response.json()
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error("Invalid Groq response structure")
+      console.error("Invalid Groq response structure:", data)
       return NextResponse.json(
         {
-          error: "Invalid AI response",
+          error: "Invalid AI response structure",
         },
         { status: 500 },
       )
