@@ -202,10 +202,14 @@ IMPORTANT FORMATTING INSTRUCTIONS:
       return NextResponse.json({ content: responseContent })
     } catch (fetchError) {
       clearTimeout(timeoutId)
-      if (fetchError.name === "AbortError") {
+
+      // Type-safe error handling
+      if (fetchError instanceof Error && fetchError.name === "AbortError") {
         console.error("Mistral API request timed out")
         throw new Error("Request timed out")
       }
+
+      // Re-throw the original error
       throw fetchError
     }
   } catch (error) {
