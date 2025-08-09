@@ -32,51 +32,11 @@ export default function Scholarships() {
         const response = await fetch("/api/scholarships")
         if (!response.ok) throw new Error("Failed to fetch scholarships")
         const data = await response.json()
-        setScholarships(data)
+        setScholarships(Array.isArray(data) ? data : [])
       } catch (error) {
         console.error("Error:", error)
-        setScholarships([
-          {
-            id: "1",
-            name: "Toshiba ExploraVision National Science Competition",
-            deadline: "January 31, 2026",
-            amount: "$10,000",
-            description: "Science competition for K-12 students",
-            requirements: "Team of 2-4 students, teacher advisor required",
-            link: "https://www.exploravision.org/",
-            category: "science",
-          },
-          {
-            id: "2",
-            name: "Optimist International Oratorical Contest",
-            deadline: "Varies by local club",
-            amount: "Up to $2,500",
-            description: "Speech contest for students under 19",
-            requirements: "Speech on the designated topic, under 19 years old",
-            link: "https://www.optimist.org/member/scholarships3.cfm",
-            category: "speech",
-          },
-          {
-            id: "3",
-            name: "Fraser Institute Student Essay Contest",
-            deadline: "June 1, 2025",
-            amount: "$1,500",
-            description: "Essay contest on economic principles",
-            requirements: "High school and undergraduate students",
-            link: "https://www.fraserinstitute.org/education-programs/students/essay-contest",
-            category: "essay",
-          },
-          {
-            id: "4",
-            name: "SolidEssay Writing Contest",
-            deadline: "June 9, 2025",
-            amount: "$1,000",
-            description: "Essay writing contest for students",
-            requirements: "Currently enrolled students",
-            link: "https://www.solidessay.com/essay-contest",
-            category: "essay",
-          },
-        ])
+        // No fallback data — keep empty
+        setScholarships([])
       } finally {
         setLoading(false)
       }
