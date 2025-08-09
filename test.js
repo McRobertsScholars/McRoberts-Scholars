@@ -24,4 +24,3 @@
         console.error("❌ Error fetching data:", error.message);
     }
 })();
-
